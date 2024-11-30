@@ -1,0 +1,3 @@
+<?php
+return ['project-id-version'=>'Houzez v1.0.0','report-msgid-bugs-to'=>'https://wordpress.org/tags/_s','pot-creation-date'=>'2024-04-19 15:12+0500','po-revision-date'=>'2024-09-06 06:56+0000','last-translator'=>'Smruti Ranjan Behera','language-team'=>'English (United States)','language'=>'en_US','mime-version'=>'1.0','content-type'=>'text/plain; charset=UTF-8','content-transfer-encoding'=>'8bit','plural-forms'=>'nplurals=2; plural=(n != 1);','x-generator'=>'Loco https://localise.biz/','x-poedit-sourcecharset'=>'UTF-8','x-poedit-keywordslist'=>'__;_e;esc_html__;esc_html_e;esc_html_x;esc_attr__;esc_attr_e;esc_attr_x;_x;_ex;_n;_nx;_n_noop;_nx_noop','x-poedit-basepath'=>'.','x-poedit-searchpath-0'=>'..
+','x-loco-version'=>'2.6.11; wp-6.6.1','messages'=>[]];
