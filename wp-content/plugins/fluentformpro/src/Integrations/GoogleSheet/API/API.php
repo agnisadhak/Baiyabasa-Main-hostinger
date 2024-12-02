@@ -8,19 +8,14 @@ if (!defined('ABSPATH')) {
 
 class API
 {
-    private $clientId;
-    private $clientSecret;
+    private $clientId = '157785030834-7bkpc1olhgp9kd683c78dclei5elhoku.apps.googleusercontent.com';
+    private $clientSecret = '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';
     private $redirect = 'https://fluentforms.com/gapi/';
 
     private $optionKey = '_fluentform_google_sheet_settings';
 
     public function __construct()
     {
-        // Load sensitive data from environment variables
-        $this->clientId = getenv('GOOGLE_CLIENT_ID');
-        $this->clientSecret = getenv('GOOGLE_CLIENT_SECRET');
-
-        // Allow overriding via constants if set
         if (defined('FF_GSHEET_CLIENT_ID')) {
             $this->clientId = FF_GSHEET_CLIENT_ID;
         }
@@ -46,6 +41,7 @@ class API
         if ($bodyArgs) {
             $args['body'] = json_encode($bodyArgs);
         }
+
 
         $args['method'] = $type;
         $request = wp_remote_request($url, $args);
@@ -107,16 +103,25 @@ class API
         return $tokens['access_token'];
     }
 
-    public function getAuthUrl()
+    public function getAUthUrl()
     {
         return 'https://accounts.google.com/o/oauth2/auth?access_type=offline&approval_prompt=force&client_id=' . $this->clientId . '&redirect_uri=' . urlencode($this->redirect) . '&response_type=code&scope=https%3A%2F%2Fspreadsheets.google.com%2Ffeeds%2F';
     }
 
     private function refreshToken($tokens)
     {
+        $clientId = $this->clientId;
+        $clientSecret = $this->clientSecret;
+
+        // To support previous Google Authentication Process we must use the Previous App
+        if (!isset($tokens['version'])) {
+            $clientId = '157785030834-inhccvqk9nib57i6i326q3aaecgpnctl.apps.googleusercontent.com';
+            $clientSecret = 'Rnw-FlDRRXkp0QlFSV6h1HHs';
+        }
+
         $args = [
-            'client_id' => $this->clientId,
-            'client_secret' => $this->clientSecret,
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
             'refresh_token' => $tokens['refresh_token'],
             'grant_type' => 'refresh_token'
         ];
