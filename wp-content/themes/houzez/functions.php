@@ -721,3 +721,229 @@ function redirect_logged_in_users() {
     }
 }
 add_action('template_redirect', 'redirect_logged_in_users');
+
+
+
+// New Login code Fluent Forms
+
+add_action('fluentform/before_insert_submission', function ($insertData, $data, $form) { 
+    if($form->id != 7) { // 23 is your form id. Change the 23 with your own form ID
+        return; 
+    }
+    
+    $redirectUrl = home_url(); // You can change the redirect url after successful login
+    
+    // If you have a field as refer_url as hidden field and value is: {http_referer} 
+    // We can use that as a redirect URL. We will redirect if it's the same domain
+    // If you want to redirect to a fixed URL then remove the next 3 lines
+    if(!empty($data['refer_url']) && strpos($data['refer_url'], site_url()) !== false) { 
+        $redirectUrl = $data['refer_url']; 
+    }
+    
+    if (get_current_user_id()) { 
+        // user already registered
+        wp_send_json_success([ 
+            'result' => [ 
+                'redirectUrl' => $redirectUrl, 
+                'message' => 'You are already logged in. Redirecting now...' 
+            ] 
+        ]); 
+    }
+    
+    // Get the login field (which could be username or email) Fluent Form
+    $login_input = \FluentForm\Framework\Helpers\ArrayHelper::get($data, 'user_email'); 
+    $password = \FluentForm\Framework\Helpers\ArrayHelper::get($data, 'password'); 
+    
+    if(!$login_input || !$password) { 
+        wp_send_json_error([ 
+            'errors' => ['Please provide username/email and password'] 
+        ], 423); 
+    }
+    
+    // Try to get user by email first
+    $user = get_user_by('email', $login_input);
+    
+    // If not found by email, try by username
+    if (!$user) {
+        $user = get_user_by('user_email', $login_input);
+    }
+    
+    // Check if user exists and password is correct
+    if($user && wp_check_password($password, $user->user_pass, $user->ID)) { 
+        wp_clear_auth_cookie(); 
+        wp_set_current_user($user->ID); 
+        wp_set_auth_cookie($user->ID); 
+        
+        wp_send_json_success([ 
+            'result' => [ 
+                'redirectUrl' => $redirectUrl, 
+                'message' => 'You are logged in. Please wait while you are being redirected.' 
+            ] 
+        ]); 
+    } else { 
+        // user not found or password incorrect
+        wp_send_json_error([ 
+            'errors' => ['Username/Email or password is incorrect'] 
+        ], 423); 
+    } 
+}, 10, 3);
+
+
+
+// Custom Create a listing form by  Fluent Form Pro database interlink
+ 
+add_action('fluentform_submission_inserted', 'custom_property_listing_from_fluent_form', 10, 3);
+function custom_property_listing_from_fluent_form($insertedData, $form, $formData) {
+    // Check if this is the specific form for property listing
+    // Replace with your actual form ID
+    if ($form->id != 5) {
+        return;
+    }
+
+    // Extract form data
+    $property_title = $formData['property_title'] ?? '';
+    $property_description = $formData['property_description'] ?? '';
+    $property_type = $formData['property_type'] ?? '';
+    $property_status = $formData['property_status'] ?? '';
+    $property_price = $formData['property_price'] ?? 0;
+    $bedrooms = $formData['bedrooms'] ?? 0;
+    $bathrooms = $formData['bathrooms'] ?? 0;
+    $property_address = $formData['property_address'] ?? '';
+    $property_area = $formData['property_area'] ?? 0;
+
+    // Prepare property post data
+    $property_post = [
+        'post_title'    => sanitize_text_field($property_title),
+        'post_content'  => wp_kses_post($property_description),
+        'post_status'   => 'pending', // Or 'publish' based on your preference
+        'post_type'     => 'property',
+        'post_author'   => get_current_user_id()
+    ];
+
+    // Insert property post
+    $property_id = wp_insert_post($property_post);
+
+    // Handle property meta data
+    if ($property_id) {
+        // Store property details as post meta (Houzez-style meta keys)
+        update_post_meta($property_id, 'fave_property_type', sanitize_text_field($property_type));
+        update_post_meta($property_id, 'fave_property_status', sanitize_text_field($property_status));
+        update_post_meta($property_id, 'fave_property_price', floatval($property_price));
+        update_post_meta($property_id, 'fave_property_size', floatval($property_area));
+        update_post_meta($property_id, 'fave_property_bedrooms', intval($bedrooms));
+        update_post_meta($property_id, 'fave_property_bathrooms', intval($bathrooms));
+        update_post_meta($property_id, 'fave_property_address', sanitize_text_field($property_address));
+
+        // Handle image uploads
+        $image_uploads = $formData['property_images'] ?? [];
+        if (!empty($image_uploads)) {
+            require_once(ABSPATH . 'wp-admin/includes/image.php');
+            require_once(ABSPATH . 'wp-admin/includes/file.php');
+            require_once(ABSPATH . 'wp-admin/includes/media.php');
+
+            foreach ($image_uploads as $image_url) {
+                $upload_image = media_sideload_image($image_url, $property_id, $property_title);
+                
+                if (!is_wp_error($upload_image)) {
+                    $image_id = attachment_url_to_postid($image_url);
+                    
+                    // Set first image as featured image
+                    if (!has_post_thumbnail($property_id)) {
+                        set_post_thumbnail($property_id, $image_id);
+                    }
+                }
+            }
+        }
+
+        // Optional: Send notification email
+        wp_mail(
+            get_option('admin_email'), 
+            'New Property Listing Submitted', 
+            'A new property listing has been submitted: ' . $property_title
+        );
+    }
+}
+
+// Custom Capture Upload
+// 
+// add_filter('fluentform_load_scripts', function($scripts) {
+//     $scripts[] = [
+//         'handle' => 'custom-image-upload',
+//         'src' => get_template_directory_uri() . '/js/image-upload.js',
+//         'deps' => ['jquery'],
+//         'ver' => '1.0',
+//         'in_footer' => true
+//     ];
+//     return $scripts;
+// });
+
+// function add_custom_image_upload_styles() {
+//     echo '<style>
+//         .image-upload-container { margin-bottom: 15px; }
+//         #image-preview-container {
+//             display: flex;
+//             flex-wrap: wrap;
+//             margin-top: 10px;
+//         }
+//         .image-preview {
+//             display: flex;
+//             flex-direction: column;
+//             align-items: center;
+//             margin-right: 10px;
+//             margin-bottom: 10px;
+//         }
+//         .image-preview img {
+//             object-fit: cover;
+//             max-width: 200px;
+//             max-height: 200px;
+//             border: 1px solid #ddd;
+//         }
+//         .image-preview button {
+//             margin-top: 5px;
+//             padding: 5px 10px;
+//             background-color: #ff4444;
+//             color: white;
+//             border: none;
+//             cursor: pointer;
+//         }
+//     </style>';
+// }
+// add_action('wp_head', 'add_custom_image_upload_styles');
+ 
+// Login Validity for property registration
+ 
+// <?php
+// // Add this to your theme's functions.php or in a custom plugin
+
+// // Ensure direct access is prevented
+// if (!defined('ABSPATH')) {
+//     exit;
+// }
+
+// // Intercept Fluent Form submission before processing
+// add_filter('fluentform_submission_handler', 'check_user_login_for_property_submission', 10, 4);
+// function check_user_login_for_property_submission($response, $form, $inputData, $entry) {
+//     // Verify this is the specific property submission form
+//     // Replace YOUR_FORM_ID with the actual Fluent Form ID for property submissions
+//     $property_form_id = YOUR_FORM_ID;
+    
+//     if ($form->id == $property_form_id) {
+//         // Check if user is logged in
+//         if (!is_user_logged_in()) {
+//             // Prepare error response
+//             $response = [
+//                 'status' => 'error',
+//                 'message' => 'You must be logged in to submit a property. Please login or register.',
+//                 'action' => 'login_required'
+//             ];
+            
+//             // Send JSON response to stop form submission
+//             wp_send_json_error($response);
+//             exit;
+//         }
+//     }
+    
+//     return $response;
+// }
+
+// // Add login prompt to the form
