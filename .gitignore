@@ -1,0 +1,14 @@
+# Exclude uploads
+wp-content/uploads/
+
+# Exclude backups
+app/sql/
+app/public/wp-content/backup/
+app/public/wp-content/upgrades/
+app/public/wp-content/cache/
+app/public/wp-content/litespeed/
+
+# Exclude other logs or temp files
+*.log
+*.sql
+*.bak
